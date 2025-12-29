@@ -2,7 +2,8 @@
 FROM node:18-alpine
 
 # Install production dependencies
-RUN apk add --no-cache curl
+RUN apk add --no-cache curl openssl
+
 
 # Create app user for security
 RUN addgroup -g 1001 -S nodejs
@@ -15,9 +16,12 @@ WORKDIR /app
 COPY package*.json ./
 
 # Install only production dependencies
-RUN npm ci --only=production && npm cache clean --force
+RUN npm install && npm cache clean --force
 
-# Generate Prisma client
+# Copy Prisma schema before generation
+COPY prisma ./prisma
+
+# Generate Prisma client (needs all dependencies)
 RUN npx prisma generate
 
 # Copy source code
