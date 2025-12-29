@@ -1,0 +1,538 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                Int      @id @default(autoincrement())
+  name              String
+  email             String   @unique
+  password          String
+  profilePhoto      String?
+  location          String?
+  bio               String?
+  interests         String?  @default("[]") // JSON string of array
+  personalityType   String?
+  timezone          String?
+  availability      String?  // JSON string
+  reputation        Int      @default(0)
+  xp                Int      @default(0)
+  level             Int      @default(1)
+  streak            Int      @default(0)
+  longestStreak     Int      @default(0)
+  lastActivity      DateTime @default(now())
+  emailVerified     Boolean  @default(false)
+  phoneNumber       String?
+  socialLinks       String?  // JSON string
+  preferences       String?  // JSON string
+  role              String   @default("user")
+  isActive          Boolean  @default(true)
+  banned            Boolean  @default(false)
+  banReason         String?
+  bannedAt          DateTime?
+  
+  // Multi-Factor Authentication
+  mfaEnabled        Boolean  @default(false)
+  mfaSecret         String?  // Base32 encoded secret for TOTP
+  mfaBackupCodes    String?  // JSON array of backup codes
+  mfaRecoveryCodes  String?  // JSON array of recovery codes
+  
+  // Enhanced Security
+  passwordLastChanged DateTime @default(now())
+  lastPasswordChangeIP String?
+  loginAttempts     Int      @default(0)
+  lockedUntil       DateTime?
+  twoFactorVerified Boolean  @default(false)
+  
+  // Session Management
+  refreshTokenHash  String?  // Hash of current refresh token
+  refreshTokenExp   DateTime?
+  
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  
+  skills            Skill[]
+  requests          Exchange[] @relation("Requester")
+  provisions        Exchange[] @relation("Provider")
+  messages          Message[]
+  messageReactions  MessageReaction[]
+  badges            Badge[]
+  achievements      UserAchievement[]
+  activityLogs      ActivityLog[]
+  notifications     Notification[]
+  reviews           Review[] @relation("Reviewer")
+  receivedReviews   Review[] @relation("Reviewee")
+  userPreferences   UserPreference[]
+  searchHistory     SearchHistory[]
+  pushSubscriptions PushSubscription[]
+  notificationPreference NotificationPreference[]
+  sessions          Session[]
+  securityLogs            SecurityLog[]
+  skillVerificationReviews SkillVerification[] @relation("SkillVerificationReviewer")
+  
+  @@index([xp])
+  @@index([reputation])
+  @@index([streak])
+  @@index([level])
+  @@index([createdAt])
+  @@index([email])
+  @@index([role])
+  @@index([isActive])
+}
+
+
+
+model Exchange {
+  id           Int      @id @default(autoincrement())
+  skill        Skill    @relation(fields: [skillId], references: [id])
+  skillId      Int
+  requester    User     @relation("Requester", fields: [requesterId], references: [id])
+  requesterId  Int
+  provider     User     @relation("Provider", fields: [providerId], references: [id])
+  providerId   Int
+  status       String   @default("pending")
+  timeCredits  Int      @default(0)
+  payment      Float    @default(0)
+  createdAt    DateTime @default(now())
+  completedAt  DateTime?
+  messages     Message[]
+  reviews      Review[]
+}
+
+model Message {
+  id          Int      @id @default(autoincrement())
+  exchange    Exchange @relation(fields: [exchangeId], references: [id])
+  exchangeId  Int
+  sender      User     @relation(fields: [senderId], references: [id])
+  senderId    Int
+  message     String
+  isRead      Boolean  @default(false)
+  readAt      DateTime?
+  messageType String   @default("text") // text, image, file, system
+  attachmentUrl String?
+  edited      Boolean  @default(false)
+  editedAt    DateTime?
+  deleted     Boolean  @default(false)
+  deletedAt   DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Threading support
+  parentMessageId Int?
+  parentMessage   Message?  @relation("ThreadReplies", fields: [parentMessageId], references: [id])
+  threadReplies   Message[] @relation("ThreadReplies")
+
+  reactions     MessageReaction[]
+
+  @@index([exchangeId])
+  @@index([senderId])
+  @@index([createdAt])
+  @@index([isRead])
+  @@index([parentMessageId])
+}
+
+// Message Reactions
+model MessageReaction {
+  id        Int      @id @default(autoincrement())
+  message   Message  @relation(fields: [messageId], references: [id])
+  messageId Int
+  user      User     @relation(fields: [userId], references: [id])
+  userId    Int
+  emoji     String   // Store emoji as string
+  createdAt DateTime @default(now())
+
+  @@unique([messageId, userId])
+  @@index([messageId])
+  @@index([userId])
+}
+
+model Badge {
+  id          Int      @id @default(autoincrement())
+  user        User     @relation(fields: [userId], references: [id])
+  userId      Int
+  badgeName   String
+  description String
+  badgeType   String   // achievement, milestone, special, etc.
+  iconUrl     String?
+  rarity      String   @default("common") // common, rare, epic, legendary
+  earnedAt    DateTime @default(now())
+  isVisible   Boolean  @default(true)
+  
+  @@index([userId])
+  @@index([badgeType])
+  @@index([rarity])
+}
+
+// Achievement System
+model Achievement {
+  id            Int      @id @default(autoincrement())
+  name          String   @unique
+  description   String
+  category      String   // skill, social, consistency, milestone
+  requirement   String   // JSON string
+  xpReward      Int      @default(0)
+  badgeIconUrl  String?
+  rarity        String   @default("common")
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+
+  userAchievements UserAchievement[]
+  
+  @@index([category])
+  @@index([isActive])
+}
+
+model UserAchievement {
+  id            Int        @id @default(autoincrement())
+  user          User       @relation(fields: [userId], references: [id])
+  userId        Int
+  achievement   Achievement @relation(fields: [achievementId], references: [id])
+  achievementId Int
+  progress      Float      @default(0) // 0-100%
+  completed     Boolean    @default(false)
+  completedAt   DateTime?
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+
+  @@unique([userId, achievementId])
+  @@index([userId])
+  @@index([achievementId])
+  @@index([completed])
+}
+
+// Activity and Analytics
+model ActivityLog {
+  id          Int      @id @default(autoincrement())
+  user        User     @relation(fields: [userId], references: [id])
+  userId      Int
+  action      String   // login, skill_created, exchange_completed, etc.
+  resource    String   // skill, exchange, message, etc.
+  resourceId  Int?
+  metadata    String?  // JSON string
+  ipAddress   String?
+  userAgent   String?
+  createdAt   DateTime @default(now())
+
+  @@index([userId])
+  @@index([action])
+  @@index([createdAt])
+}
+
+model Notification {
+  id          Int      @id @default(autoincrement())
+  user        User     @relation(fields: [userId], references: [id])
+  userId      Int
+  title       String
+  body        String
+  message     String?
+  type        String   // info, success, warning, error, system, message, exchange_request, session_reminder, call
+  category    String?  // exchange, message, achievement, system
+  data        String?  // JSON string for additional data
+  read        Boolean  @default(false)
+  readAt      DateTime?
+  actionUrl   String?
+  metadata    String?  // JSON string
+  createdAt   DateTime @default(now())
+
+  @@index([userId])
+  @@index([read])
+  @@index([category])
+  @@index([createdAt])
+}
+
+// Push Notification Subscriptions
+model PushSubscription {
+  id        Int      @id @default(autoincrement())
+  user      User     @relation(fields: [userId], references: [id])
+  userId    Int
+  endpoint  String   @unique
+  p256dh    String
+  auth      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@index([endpoint])
+}
+
+// Notification Preferences
+model NotificationPreference {
+  id                      Int      @id @default(autoincrement())
+  user                    User     @relation(fields: [userId], references: [id])
+  userId                  Int      @unique
+  pushEnabled             Boolean  @default(true)
+  emailEnabled            Boolean  @default(true)
+  messageNotifications    Boolean  @default(true)
+  exchangeNotifications   Boolean  @default(true)
+  sessionReminders        Boolean  @default(true)
+  marketingNotifications  Boolean  @default(false)
+  reminderMinutes         Int      @default(15)
+  quietHoursStart         String?
+  quietHoursEnd           String?
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime @updatedAt
+
+  @@index([userId])
+}
+
+// Reviews and Reputation
+model Review {
+  id            Int      @id @default(autoincrement())
+  reviewer      User     @relation("Reviewer", fields: [reviewerId], references: [id])
+  reviewerId    Int
+  reviewee      User     @relation("Reviewee", fields: [revieweeId], references: [id])
+  revieweeId    Int
+  exchange      Exchange? @relation(fields: [exchangeId], references: [id])
+  exchangeId    Int?
+  rating        Int      // 1-5 stars
+  comment       String?
+  tags          String   // JSON string - communication, punctuality, skill_level, etc.
+  isPublic      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([reviewerId])
+  @@index([revieweeId])
+  @@index([exchangeId])
+  @@index([rating])
+}
+
+// User Preferences and Learning
+model UserPreference {
+  id            Int      @id @default(autoincrement())
+  user          User     @relation(fields: [userId], references: [id])
+  userId        Int
+  category      String   // skill_categories, communication, scheduling, etc.
+  preferenceKey String
+  preferenceValue String // JSON string
+  confidence    Float    @default(1.0) // confidence level in this preference
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@unique([userId, category, preferenceKey])
+  @@index([userId])
+  @@index([category])
+}
+
+model SearchHistory {
+  id          Int      @id @default(autoincrement())
+  user        User     @relation(fields: [userId], references: [id])
+  userId      Int
+  searchQuery String
+  filters     String?  // JSON string
+  resultsCount Int     @default(0)
+  clickedResultId Int?
+  createdAt   DateTime @default(now())
+
+  @@index([userId])
+  @@index([createdAt])
+}
+
+// Session Management
+model Session {
+  id            Int      @id @default(autoincrement())
+  user          User     @relation(fields: [userId], references: [id])
+  userId        Int
+  sessionToken  String   @unique
+  refreshToken  String   @unique
+  deviceInfo    String?  // JSON string
+  ipAddress     String?
+  userAgent     String?
+  location      String?
+  isActive      Boolean  @default(true)
+  expiresAt     DateTime
+  lastActivity  DateTime @default(now())
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([userId])
+  @@index([sessionToken])
+  @@index([expiresAt])
+  @@index([isActive])
+}
+
+// Security Event Logging
+model SecurityLog {
+  id            Int      @id @default(autoincrement())
+  user          User?    @relation(fields: [userId], references: [id])
+  userId        Int?
+  eventType     String   // login_success, login_failed, password_change, mfa_enabled, etc.
+  ipAddress     String?
+  userAgent     String?
+  location      String?
+  severity      String   @default("info") // info, warning, error, critical
+  details       String?  // JSON string with additional details
+  success       Boolean  @default(true)
+  createdAt     DateTime @default(now())
+
+  @@index([userId])
+  @@index([eventType])
+  @@index([severity])
+  @@index([createdAt])
+}
+
+// Content Moderation
+model Report {
+  id          Int      @id @default(autoincrement())
+  reporterId  Int
+  reportedUserId Int?
+  reportedContentType String // user, skill, message, exchange
+  reportedContentId Int
+  reason      String
+  description String?
+  status      String   @default("pending") // pending, reviewed, resolved, dismissed
+  reviewedBy  Int?
+  reviewedAt  DateTime?
+  resolution  String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([status])
+  @@index([reportedContentType])
+  @@index([createdAt])
+}
+
+// Skill Categories and Tags
+model SkillCategory {
+  id          Int      @id @default(autoincrement())
+  name        String   @unique
+  description String?
+  iconUrl     String?
+  color       String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+
+  skills      Skill[]
+  
+  @@index([isActive])
+}
+
+model SkillTag {
+  id          Int      @id @default(autoincrement())
+  name        String   @unique
+  description String?
+  category    String?
+  usageCount  Int      @default(0)
+  createdAt   DateTime @default(now())
+
+  @@index([category])
+  @@index([usageCount])
+}
+
+// Enhanced Skill Model
+model Skill {
+  id            Int       @id @default(autoincrement())
+  user          User      @relation(fields: [userId], references: [id])
+  userId        Int
+  title         String
+  description   String
+  category      SkillCategory? @relation(fields: [categoryId], references: [id])
+  categoryId    Int?
+  subcategory   String?
+  mode          String    // online, in-person, hybrid
+  duration      Int       // in minutes
+  price         Float?    // optional price for paid sessions
+  isActive      Boolean   @default(true)
+  isVerified    Boolean   @default(false)
+  verificationStatus String @default("pending")
+  difficulty    String?   // beginner, intermediate, advanced
+  requirements  String?   @default("[]") // JSON string
+  tags          String?   @default("[]") // JSON string
+  resources     String?   // JSON string - URLs to resources, materials
+  availability  String?   // JSON string - availability schedule
+  rating        Float?    // average rating
+  reviewCount   Int       @default(0)
+  viewCount     Int       @default(0)
+  requestCount  Int       @default(0)
+  completionRate Float?   // percentage
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  exchanges             Exchange[]
+  skillVerifications    SkillVerification[]
+  skillDemonstrations   SkillDemonstration[]
+  skillAssessments      SkillAssessment[]
+  
+  @@index([userId])
+  @@index([categoryId])
+  @@index([subcategory])
+  @@index([mode])
+  @@index([isActive])
+  @@index([isVerified])
+  @@index([rating])
+  @@index([createdAt])
+}
+
+// Skill Verification System
+model SkillVerification {
+  id               Int      @id @default(autoincrement())
+  skill            Skill    @relation(fields: [skillId], references: [id])
+  skillId          Int
+  verificationType String   // portfolio, certification, interview, peer_review, demonstration, assessment
+  status           String   @default("pending") // pending, in_review, verified, rejected, expired
+  submittedAt      DateTime @default(now())
+  reviewedAt       DateTime?
+  reviewedBy       Int?
+  reviewer         User?    @relation("SkillVerificationReviewer", fields: [reviewedBy], references: [id])
+  reviewerNotes    String?
+  evidence         String?  // JSON string - uploaded documents, URLs, etc.
+  evidenceVerified String?  // JSON string - verified evidence
+  score            Float?   // verification score (0-100)
+  expiresAt        DateTime?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  
+  @@index([skillId])
+  @@index([status])
+  @@index([verificationType])
+  @@index([submittedAt])
+}
+
+model SkillDemonstration {
+  id            Int      @id @default(autoincrement())
+  skill         Skill    @relation(fields: [skillId], references: [id])
+  skillId       Int
+  type          String   // video_call, live_demo, recorded_session
+  scheduledFor  DateTime
+  timezone      String
+  duration      Int      // minutes
+  status        String   @default("scheduled") // scheduled, completed, cancelled, no_show
+  requirements  String?  // JSON string
+  recordingUrl  String?
+  notes         String?
+  score         Float?   // demonstration score
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  
+  @@index([skillId])
+  @@index([scheduledFor])
+  @@index([status])
+}
+
+model SkillAssessment {
+  id         Int      @id @default(autoincrement())
+  skill      Skill    @relation(fields: [skillId], references: [id])
+  skillId    Int
+  questions  String   // JSON string - assessment questions
+  timeLimit  Int      // minutes
+  difficulty String   // beginner, intermediate, advanced
+  status     String   @default("pending") // pending, in_progress, completed, expired
+  score      Float?   // assessment score
+  answers    String?  // JSON string - user answers
+  startedAt  DateTime?
+  completedAt DateTime?
+  expiresAt  DateTime?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  
+  @@index([skillId])
+  @@index([status])
+  @@index([difficulty])
+}

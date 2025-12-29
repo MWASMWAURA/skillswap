@@ -1,0 +1,62 @@
+{
+  "expo": {
+    "name": "SkillSwap",
+    "slug": "skillswap",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "automatic",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#3B82F6"
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.skillswap.app",
+      "infoPlist": {
+        "NSCameraUsageDescription": "SkillSwap needs camera access for video calls and profile photos",
+        "NSMicrophoneUsageDescription": "SkillSwap needs microphone access for video and audio calls",
+        "NSCalendarsUsageDescription": "SkillSwap needs calendar access to schedule skill sessions",
+        "NSPhotoLibraryUsageDescription": "SkillSwap needs photo library access to upload resources"
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#3B82F6"
+      },
+      "package": "com.skillswap.app",
+      "permissions": [
+        "CAMERA",
+        "RECORD_AUDIO",
+        "READ_CALENDAR",
+        "WRITE_CALENDAR",
+        "READ_EXTERNAL_STORAGE",
+        "WRITE_EXTERNAL_STORAGE"
+      ]
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      "expo-camera",
+      "expo-notifications",
+      "expo-calendar",
+      [
+        "expo-av",
+        {
+          "microphonePermission": "Allow SkillSwap to access your microphone for calls"
+        }
+      ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "your-project-id"
+      }
+    }
+  }
+}

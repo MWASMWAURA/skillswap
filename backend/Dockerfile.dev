@@ -1,0 +1,26 @@
+# Development Dockerfile for SkillSwap Backend
+FROM node:18-alpine
+
+# Install development dependencies
+RUN apk add --no-cache curl
+
+# Set working directory
+WORKDIR /app
+
+# Copy package files
+COPY package*.json ./
+
+# Install dependencies
+RUN npm install
+
+# Copy source code
+COPY . .
+
+# Create necessary directories
+RUN mkdir -p uploads logs
+
+# Expose port
+EXPOSE 5000
+
+# Command to run development server
+CMD ["npm", "run", "dev"]
