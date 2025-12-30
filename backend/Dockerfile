@@ -23,6 +23,7 @@ COPY prisma ./prisma
 
 # Generate Prisma client (needs all dependencies)
 RUN npx prisma generate
+RUN npx prisma migrate deploy --name init
 
 # Copy source code
 COPY . .
